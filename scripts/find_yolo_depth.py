@@ -119,6 +119,7 @@ class DepthEstimator:
 
                 else:
                     # rospy.loginfo("No valid depth values found within the bounding box")
+                    pass
                     
     def transform_point(self, point, target_frame):
         # Wait for the transform to become available
