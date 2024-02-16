@@ -13,6 +13,17 @@ class DepthEstimator:
         self.depth_image_sub = rospy.Subscriber('/camera/depth/image_raw', Image, self.depth_image_callback)
         self.bounding_boxes = []
         self.depth_image = None
+        
+        self.K = np.array([[570.3405082258201,               0.0, 319.5],
+                           [0.0,               570.3405082258201, 239.5],
+                           [0.0,                             0.0,   1.0]])
+        self.R = np.identity(3)
+        self.P = np.array([[570.3405082258201,               0.0, 319.5, 0.0],
+                           [              0.0, 570.3405082258201, 239.5, 0.0],
+                           [              0.0,               0.0,   1.0, 0.0]])
+                           
+        self.K_inv = np.linalg.inv(self.K)
+        self.P_inv = np.linalg.inv(self.P[:, :3])
 
     def bounding_boxes_callback(self, msg):
         self.bounding_boxes = msg.bounding_boxes
@@ -52,10 +63,28 @@ class DepthEstimator:
                 # Calculate average depth for the bounding box
                 if len(region_depth_values) > 0:
                     # average_depth = np.mean(box_depth_values)
-                    average_depth = np.mean(region_depth_values)
-                    rospy.loginfo("Average depth of person: {:.2f} meters".format(average_depth/1000))
+                    average_depth = np.mean(region_depth_values)/1000
+                    rospy.loginfo("Average depth of person: {:.2f} meters".format(average_depth))
+                    
+                    pixel_coords_homogeneous = np.array([center_x, center_y, 1])
+                    camera_coords_homogeneous = average_depth * np.dot(np.dot(self.P_inv, self.R.T), np.dot(self.K_inv, pixel_coords_homogeneous))
+                    
+                    x_camera = camera_coords_homogeneous[0]
+                    y_camera = camera_coords_homogeneous[1]
+                    z_camera = camera_coords_homogeneous[2]
+
+                    # Camera coordinates of the bounding box center
+                    bounding_box_center_camera = (x_camera, y_camera, z_camera)
+                    coordinates_str = "Camera coordinates: ({:.2f}, {:.2f}, {:.2f})".format(x_camera, y_camera, z_camera)
+
+                    # Log the coordinates using rospy.loginfo
+                    rospy.loginfo(coordinates_str)
+
                 else:
                     rospy.loginfo("No valid depth values found within the bounding box")
+                    
+                
+                
 
 if __name__ == '__main__':
     try:
