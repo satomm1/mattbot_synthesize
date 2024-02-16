@@ -103,12 +103,12 @@ class DepthEstimator:
                     coordinates_str = "Camera coordinates: ({:.2f}, {:.2f}, {:.2f})".format(x_camera, y_camera, z_camera)
 
                     # Log the coordinates using rospy.loginfo
-                    rospy.loginfo(coordinates_str)
+                    # rospy.loginfo(coordinates_str)
                     
                     object_loc = PointStamped()
                     object_loc.header.frame_id = "camera_link"
                     object_loc.point.x = z_camera
-                    object_loc.point.y = x_camera
+                    object_loc.point.y = -x_camera
                     object_loc.point.z = y_camera
                     
                     object_map = PointStamped()
@@ -118,7 +118,7 @@ class DepthEstimator:
                     self.object_pub.publish(object_map)
 
                 else:
-                    rospy.loginfo("No valid depth values found within the bounding box")
+                    # rospy.loginfo("No valid depth values found within the bounding box")
                     
     def transform_point(self, point, target_frame):
         # Wait for the transform to become available

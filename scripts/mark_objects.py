@@ -38,7 +38,7 @@ class ObjectMarker:
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
         marker.pose.position = msg.point
-        print(msg.point)
+        # print(msg.point)
         marker.pose.orientation.w = 1.0  # No rotation
         marker.scale.x = 0.1  # Size of the marker (diameter)
         marker.scale.y = 0.1
