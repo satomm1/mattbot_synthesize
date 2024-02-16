@@ -5,6 +5,12 @@ from cv_bridge import CvBridge
 import numpy as np
 import cv2
 
+import tf2_ros
+import tf2_geometry_msgs
+from geometry_msgs.msg import PointStamped, TransformStamped
+from tf2_msgs.msg import TFMessage
+
+
 class DepthEstimator:
     def __init__(self):
         rospy.init_node('depth_estimator')
@@ -34,6 +40,11 @@ class DepthEstimator:
         self.Converter = np.array([[1/self.fx, -self.S/(self.fx * self.fy), (self.S*self.cy - self.cx*self.fy)/(self.fx*self.fy)],
                                    [0, 1/self.fy, -self.cy/self.fy],
                                    [0, 0, 1]])
+                                   
+        self.tfBuffer = tf2_ros.Buffer()
+        self.tfListener = tf2_ros.TransformListener(self.tfBuffer)
+        
+        self.object_pub = rospy.Publisher('/object_loc', PointStamped, queue_size=10)
 
     def bounding_boxes_callback(self, msg):
         self.bounding_boxes = msg.bounding_boxes
@@ -47,7 +58,7 @@ class DepthEstimator:
 
     def process_bounding_boxes(self):
         for box in self.bounding_boxes:
-            if box.Class == "person":
+            if box.Class == "person" and box.probability > 0.8:
                 x_min = int(box.xmin)
                 y_min = int(box.ymin)
                 x_max = int(box.xmax)
@@ -93,11 +104,33 @@ class DepthEstimator:
 
                     # Log the coordinates using rospy.loginfo
                     rospy.loginfo(coordinates_str)
+                    
+                    object_loc = PointStamped()
+                    object_loc.header.frame_id = "camera_link"
+                    object_loc.point.x = z_camera
+                    object_loc.point.y = x_camera
+                    object_loc.point.z = y_camera
+                    
+                    object_map = PointStamped()
+                    object_map.header.frame_id = "map"
+                    object_map.point.x, object_map.point.y, object_map.point.z = self.transform_point(object_loc, "map")
+                    
+                    self.object_pub.publish(object_map)
 
                 else:
                     rospy.loginfo("No valid depth values found within the bounding box")
                     
-                
+    def transform_point(self, point, target_frame):
+        # Wait for the transform to become available
+        while not self.tfBuffer.can_transform(target_frame, point.header.frame_id, rospy.Time(0)):
+            rospy.logwarn_throttle(1.0, "Waiting for transform from {} to {}...".format(point.header.frame_id, target_frame))
+            rospy.sleep(0.1)
+
+        # Perform the coordinate transformation
+        transformed_point = self.tfBuffer.transform(point, target_frame)
+
+        return transformed_point.point.x, transformed_point.point.y, transformed_point.point.z
+       
                 
 
 if __name__ == '__main__':
