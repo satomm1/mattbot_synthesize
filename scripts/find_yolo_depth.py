@@ -24,6 +24,16 @@ class DepthEstimator:
                            
         self.K_inv = np.linalg.inv(self.K)
         self.P_inv = np.linalg.inv(self.P[:, :3])
+        
+        self.fx = 570.3405082258201
+        self.fy = 570.3405082258201
+        self.S = 0
+        self.cx = 319.5
+        self.cy = 239.5
+        
+        self.Converter = np.array([[1/self.fx, -self.S/(self.fx * self.fy), (self.S*self.cy - self.cx*self.fy)/(self.fx*self.fy)],
+                                   [0, 1/self.fy, -self.cy/self.fy],
+                                   [0, 0, 1]])
 
     def bounding_boxes_callback(self, msg):
         self.bounding_boxes = msg.bounding_boxes
@@ -46,6 +56,8 @@ class DepthEstimator:
                 # Calculate center coordinates of the bounding box
                 center_x = (x_min + x_max) // 2
                 center_y = (y_min + y_max) // 2
+                
+                #rospy.loginfo("center: {:.2f}, {:.2f}".format(center_x, center_y))
 
                 # Get depth values within a 5x5 pixel region at the center of the bounding box
                 region_depth_values = self.depth_image[center_y - 2:center_y + 3, center_x - 2:center_x + 3]
@@ -64,13 +76,15 @@ class DepthEstimator:
                 if len(region_depth_values) > 0:
                     # average_depth = np.mean(box_depth_values)
                     average_depth = np.mean(region_depth_values)/1000
-                    rospy.loginfo("Average depth of person: {:.2f} meters".format(average_depth))
+                    # rospy.loginfo("Average depth of person: {:.2f} meters".format(average_depth))
                     
                     pixel_coords_homogeneous = np.array([center_x, center_y, 1])
-                    camera_coords_homogeneous = average_depth * np.dot(np.dot(self.P_inv, self.R.T), np.dot(self.K_inv, pixel_coords_homogeneous))
+                    #camera_coords_homogeneous = average_depth * np.dot(np.dot(self.P_inv, self.R.T), np.dot(self.K_inv, pixel_coords_homogeneous))
+                    
+                    camera_coords_homogeneous = average_depth * self.Converter @ pixel_coords_homogeneous
                     
                     x_camera = camera_coords_homogeneous[0]
-                    y_camera = camera_coords_homogeneous[1]
+                    y_camera = -camera_coords_homogeneous[1]
                     z_camera = camera_coords_homogeneous[2]
 
                     # Camera coordinates of the bounding box center
